@@ -1,53 +1,47 @@
-# IVIM JJD Executive Dashboard (POC)
+# IVIM JJD Executive Dashboard
 
-Pillar's IVIM JJD paid-media performance dashboard, built as a standalone static application.
+Standalone IVIM JJD performance dashboard, maintained in this GitHub repository. Pillar deploys this project to its own Vercel account.
 
-## Publishing workflow
+## Password access (same architecture as Jones Soda)
 
-All code updates are committed to the **main** branch of `iLuciferDevil/IVIM-JJD-campaign`.
+The repository contains a custom password login screen (`login.html`), a server-side login endpoint (`api/auth/login.js`), a logout endpoint, and middleware (`middleware.js`) to protect the dashboard and routes. A successful login grants an HTTP-only, secure, signed cookie valid for 12 hours. The password is never written to frontend source code or GitHub.
 
-**Pillar owns the Vercel project and deploys the GitHub repository.** No changes are made to Pillar's Vercel account through this assistant.
+### Required deployment configuration
 
-## IMPORTANT: Require authentication before sharing
+In **Pillar's Vercel project**, set an encrypted environment variable named:
 
-The dashboard **does not currently implement a password login itself**. Do not treat a client-side password prompt as security: anyone can bypass client-side checks and see static assets.
+```text
+IVIM_JJD_DASHBOARD_PASSWORD
+```
 
-In **Pillar's Vercel project**, open **Security → Deployment Protection** (menu labels can vary by account and plan).
+Set its value to a strong, unique password that Pillar chooses; apply to Production and any accessible Preview deployments, then **redeploy**. Do not add the actual password to GitHub or paste it into a public channel.
 
-Choose one:
+This environment variable supplies the password checked by our custom application code. It is **not** Vercel's built-in deployment password-protection feature. No separate Vercel password protection setting is necessary.
 
-- **Recommended for internal use:** Enable **Vercel Authentication**, set coverage to **All Deployments**, and grant the intended Pillar/IVIM viewers access.
-- **If a single shared password is necessary:** Enable Vercel's **Password Protection** for **All Deployments**, if supported by Pillar's Vercel plan. Set the password privately in Vercel. Do not commit passwords, password hashes, cookies or credentials to GitHub.
+Without the environment variable, dashboard routes fail closed with HTTP 503.
 
-Verify that a private/incognito browser session cannot open the production dashboard without authentication. Verify preview deployment URLs are also protected.
+After deployment, verify in incognito: visiting the dashboard redirects to the sign-in screen; a wrong password is rejected; the right password opens the dashboard; and `/index.html` cannot be opened without a valid session.
 
-**The GitHub repository itself is presently public.** Make it private in GitHub Settings → General → Danger Zone → Change repository visibility (if appropriate for Pillar policies). Deployment protection does not make a public source repository private.
+## Deployment
 
-## Deployment in Pillar's Vercel
+1. Pillar imports `iLuciferDevil/IVIM-JJD-campaign` into its Vercel account.
+2. Set project root to `./` and framework preset to **Other**.
+3. Supply `IVIM_JJD_DASHBOARD_PASSWORD` in project environment variables.
+4. Deploy and test sign-in. The `@vercel/functions` dependency is already listed in `package.json`.
 
-1. Import GitHub repository `iLuciferDevil/IVIM-JJD-campaign` as a new Vercel project.
-2. Root Directory: `./`.
-3. Framework preset: **Other**, no build command.
-4. Enable Deployment Protection **before sharing the URL**.
-5. Deploy and perform the private/incognito access test above.
+## POC data imports
 
-## Importing data
+- Meta CSV: daily spend, clicks, campaign/ad-set and the `Registered` custom event.
+- Google CSV: daily cost, clicks, campaign and registration conversion action.
+- Blended CPR = combined platform spend / combined platform-attributed registration events.
+- Source reports must use **daily breakdowns** for daily charts.
+- Imported aggregates are kept in each viewer's own browser-local storage, not shared with other dashboard users.
+- Do not upload patient names, emails or health information.
 
-- Export campaign-by-day performance reports from Meta Ads Manager and Google Ads.
-- Include reporting day, campaign/ad set, spend/cost, clicks and the specific JJD registration event/conversion-action column.
-- Upload the CSVs using the dashboard's file selectors. Meta's `Registered` event is supported.
-- If a report is aggregated across multiple days, re-export with a **daily** breakdown before using daily trend charts.
+## Later integrations
 
-## Metrics
+Registration-to-schedule, no-show rate, provider utilization, close rate, and 90-day LTV:CAC require IVIM source-system data.
 
-- Blended CPR = (Meta spend + Google spend) / (Meta registration conversion events + Google registration conversion events).
-- These are platform-attributed events, **not** deduplicated first-party unique registrations. Both platforms may claim the same registration.
-- Initial boosted-post registrations should only be counted from the actual Meta export, not manually added.
-- Registration-to-schedule, no-show rate, provider utilization and close rate await IVIM-supplied data.
-- 90-day LTV:CAC requires separate revenue and customer-acquisition data.
+## Repository privacy
 
-## POC data handling
-
-- Imported aggregate CSV data is saved in browser-local storage. It is **not** synced between team members or uploaded to Vercel.
-- Do not import patient-level records or personally identifiable information.
-- To share live numbers between stakeholders, build an authenticated data API and controlled reporting store first.
+For internal/client use, prefer setting the GitHub repo to **private**. Application-level login protects the deployed dashboard but does not make a public GitHub repo private.
