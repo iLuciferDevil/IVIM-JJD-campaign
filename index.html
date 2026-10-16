@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IVIM | JJD Executive Dashboard</title><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#1d2630;background:#f5f8fc}
+*{box-sizing:border-box}body{margin:0;padding:28px;max-width:1550px;margin:auto}
+h1{font-size:27px;margin:0 0 5px}h2{font-size:18px;margin:0 0 14px}p{color:#617286}
+header,.toolbar,.flex{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+header{margin-bottom:22px}.tag{background:#e3efff;color:#17569c;border-radius:20px;padding:7px 12px;font-size:12px;font-weight:700}
+.panel{border:1px solid #e1e8f2;background:#fff;border-radius:12px;padding:19px;margin-bottom:18px;box-shadow:0 2px 10px #24334d06}
+.toolbar{justify-content:flex-start}.toolbar label{font-size:13px;color:#617286}
+input,select,button{font:inherit;border:1px solid #d4dfed;border-radius:7px;padding:9px;background:#fff;color:#1d2630}
+button{background:#215fa7;color:#fff;cursor:pointer;border-color:#215fa7}button.secondary{background:white;color:#215fa7}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{padding:17px;background:#eaf3ff;border-radius:10px;min-height:112px}.kpi.primary{background:#ffedc6}
+.kpi small{display:block;font-size:11px;color:#51657c;font-weight:650;text-transform:uppercase}.kpi strong{display:block;font-size:28px;margin-top:12px}.kpi span{font-size:11px;color:#5a6879}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}.plot{min-height:270px;position:relative}
+table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;background:#1f2731;color:white}th,td{padding:10px;border-bottom:1px solid #e7edf4}td.num{text-align:right}thead th.num{text-align:right}
+.pending{color:#876221;background:#fff4d7;border-radius:5px;padding:3px 8px;display:inline-block;font-size:12px}
+.note{font-size:12px;color:#728096;line-height:1.6}.upload{display:inline-flex;align-items:center;gap:6px;font-size:13px;flex-wrap:wrap}.upload input{max-width:230px}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}}@media(max-width:520px){.kpis{grid-template-columns:1fr}body{padding:12px}}
+</style></head><body>
+<header><div><div class="tag" style="display:inline-block;margin-bottom:10px">PILLAR / IVIM HEALTH</div><h1>JJD Campaign Executive Dashboard</h1><p>Meta and Google campaign performance | Proof of concept | USD</p></div><span class="tag">Manual CSV reporting</span></header>
+<section class="panel"><div class="toolbar"><label>Start date <input id="from" type="date" value="2026-10-15"></label><label>End date <input id="to" type="date"></label>
+<label>Channel <select id="channel"><option value="all">All channels</option><option value="Meta">Meta</option><option value="Google">Google</option></select></label>
+<label>Meta CSV <input type="file" id="meta" accept=".csv,text/csv"></label><label>Google CSV <input type="file" id="google" accept=".csv,text/csv"></label>
+<button class="secondary" id="clear">Clear imports</button></div>
+<p class="note" id="status">No imported performance data. Upload Meta and Google campaign exports to populate the dashboard. Files remain in this browser's local storage.</p></section>
+<section class="panel"><h2>Executive overview</h2><div class="kpis">
+<div class="kpi primary"><small>North star | Blended CPR</small><strong id="cpr">—</strong><span>Combined paid spend / reported registration events</span></div>
+<div class="kpi"><small>Total paid spend</small><strong id="spend">—</strong><span>Meta + Google</span></div>
+<div class="kpi"><small>Registration events</small><strong id="regs">—</strong><span>Attributed platform conversions</span></div>
+<div class="kpi"><small>Average CPC</small><strong id="cpc">—</strong><span>Combined spend / clicks</span></div>
+<div class="kpi"><small>Registration to schedule</small><strong>Pending</strong><span>IVIM appointment data required</span></div>
+<div class="kpi"><small>No-show rate</small><strong>Pending</strong><span>IVIM attendance data required</span></div>
+<div class="kpi"><small>Provider utilization</small><strong>Pending</strong><span>IVIM capacity data required</span></div>
+<div class="kpi"><small>Close rate</small><strong>Pending</strong><span>IVIM purchase/patient data required</span></div>
+</div></section>
+<div class="cols"><section class="panel"><h2>Spend by day</h2><div class="plot"><canvas id="spendChart"></canvas></div></section>
+<section class="panel"><h2>Registration events by day</h2><div class="plot"><canvas id="regChart"></canvas></div></section></div>
+<section class="panel"><h2>Performance by channel</h2><div style="overflow:auto"><table><thead><tr><th>Channel</th><th class="num">Spend</th><th class="num">Clicks</th><th class="num">Registration events</th><th class="num">CPR</th><th class="num">CPC</th></tr></thead><tbody id="channelRows"></tbody></table></div></section>
+<section class="panel"><h2>Performance by campaign</h2><div style="overflow:auto"><table><thead><tr><th>Channel</th><th>Campaign</th><th class="num">Spend</th><th class="num">Clicks</th><th class="num">Registration events</th><th class="num">CPR</th></tr></thead><tbody id="campaignRows"></tbody></table></div></section>
+<section class="panel"><h2>Initial JJD boosted post</h2><p><b>41 registrations</b> were reported from the initial boosted post before the new campaign rollout. This is a reference figure only. We will count this boost in the paid-channel totals once its spend and registration event count are verified in the uploaded Meta export, to avoid double counting.</p></section>
+<section class="panel"><h2>Data definitions and limitations</h2>
+<p class="note">Blended CPR = (Meta spend + Google spend) / (Meta registration conversion events + Google registration conversion events). This is a platform-attributed conversion-event metric, not deduplicated unique registrations. A cross-platform-attributed conversion may be counted twice. Use the same registration event in each platform. Other conversion types must be excluded. CSV input is for aggregated campaign-level exports, not patient-level or personally identifiable data.</p>
+<p class="note">Supported common CSV columns: Meta: Reporting starts, Campaign name, Amount spent (USD), Link clicks or Clicks (all), and a registration event column. Google: Day, Campaign, Cost, Clicks and a registration conversion action column. If the registration event is not automatically recognized, the import asks you for its exact column name. For Google, segment the report by the intended registration conversion action, rather than importing total All conv.</p>
+<p class="note">90-day LTV to CAC will be added when verified registration, appointment and revenue sources become available. This POC uses browser-local storage and is not a shared source of truth; production reporting will need a controlled data pipeline and access protection.</p></section>
+<script>
+const $=id=>document.getElementById(id), fmt=n=>Number(n||0).toLocaleString('en-US',{maximumFractionDigits:1}), money=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+let db={Meta:[],Google:[]},charts={};try{db=JSON.parse(localStorage.getItem('ivim-jjd-imports'))||db}catch(e){}$('to').value=new Date().toISOString().slice(0,10);
+function csvParse(text){let out=[],row=[],v='',quote=false;for(let i=0;i<text.length;i++){let c=text[i];if(c==='"'){if(quote&&text[i+1]==='"'){v+='"';i++}else quote=!quote}else if(c===','&&!quote){row.push(v);v=''}else if((c==='\n'||c==='\r')&&!quote){if(c==='\r'&&text[i+1]==='\n')i++;row.push(v);if(row.some(x=>x.trim()))out.push(row);row=[];v=''}else v+=c}row.push(v);if(row.some(x=>x.trim()))out.push(row);return out}
+const clean=x=>String(x||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+const value=x=>{let y=String(x||'').replace(/[$,\s]/g,'');if(y.includes('%'))return 0;return Number(y)||0};
+function dateVal(x){x=String(x||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(x))return x.slice(0,10);let d=new Date(x);return isNaN(d)?'':d.toISOString().slice(0,10)}
+function findCol(headers,variants){for(const q of variants){const i=headers.findIndex(x=>clean(x)===clean(q));if(i>=0)return i}return -1}
+function load(type,txt){const rows=csvParse(txt.replace(/^\uFEFF/,''));if(rows.length<2)throw Error('CSV is empty');let h=rows[0];const date=findCol(h,type==='Meta'?['Reporting starts','Day','Date']:['Day','Date','Date (YYYY-MM-DD)']),camp=findCol(h,['Campaign name','Campaign','Campaign Name']),cost=findCol(h,type==='Meta'?['Amount spent (USD)','Amount spent','Spend']:['Cost','Cost (USD)','Spend']),click=findCol(h,['Link clicks','Clicks','Clicks (all)']);if(date<0||camp<0||cost<0)throw Error('Cannot find required Date, Campaign and Spend/Cost columns');
+let reg=findCol(h,['Registrations','Complete registration','Complete registrations','Website registrations','Website complete registrations','Registration','Leads (Registration)']);
+if(reg<0){let selected=prompt('Enter the EXACT column name that reports JJD registration events for '+type+'. Available columns:\n'+h.join(' | '));if(!selected)return;reg=findCol(h,[selected]);if(reg<0)throw Error('Registration column not found: '+selected)}
+db[type]=rows.slice(1).map(r=>({date:dateVal(r[date]),campaign:String(r[camp]||'Unknown'),spend:value(r[cost]),clicks:click>=0?value(r[click]):0,regs:value(r[reg])})).filter(r=>r.date);
+localStorage.setItem('ivim-jjd-imports',JSON.stringify(db));render()}
+function aggregate(rows){return rows.reduce((o,r)=>({spend:o.spend+r.spend,clicks:o.clicks+r.clicks,regs:o.regs+r.regs}),{spend:0,clicks:0,regs:0})}
+function trow(cells){return '<tr>'+cells.map((x,i)=>'<td'+(i?' class="num"':'')+'>'+x+'</td>').join('')+'</tr>'}
+function plot(id,days,sets){if(charts[id])charts[id].destroy();if(!window.Chart){$(id).replaceWith(document.createTextNode('Charts require access to the Chart.js CDN'));return}charts[id]=new Chart($(id),{type:'line',data:{labels:days,datasets:sets.map((s,i)=>({label:s.label,data:s.data,borderColor:i?'#ee9b42':'#286bbc',backgroundColor:i?'#ee9b42':'#286bbc',tension:.2}))},options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true}}}})}
+function render(){const all=Object.entries(db).flatMap(([channel,rows])=>rows.map(r=>({...r,channel}))),filtered=all.filter(r=>r.date>=$('from').value&&r.date<=$('to').value&&($('channel').value==='all'||r.channel===$('channel').value));const s=aggregate(filtered);$('spend').textContent=all.length?money(s.spend):'—';$('regs').textContent=all.length?fmt(s.regs):'—';$('cpr').textContent=s.regs?money(s.spend/s.regs):'—';$('cpc').textContent=s.clicks?money(s.spend/s.clicks):'—';
+$('status').textContent='Loaded: Meta '+db.Meta.length+' daily campaign rows, Google '+db.Google.length+' daily campaign rows. Imports stored locally in this browser. '+(s.regs===0?'No registration events in selected date range.':'');
+const channels=['Meta','Google'].filter(c=>$('channel').value==='all'||$('channel').value===c);
+$('channelRows').innerHTML=channels.map(c=>{const a=aggregate(filtered.filter(r=>r.channel===c));return '<tr><td>'+c+'</td><td class="num">'+money(a.spend)+'</td><td class="num">'+fmt(a.clicks)+'</td><td class="num">'+fmt(a.regs)+'</td><td class="num">'+(a.regs?money(a.spend/a.regs):'—')+'</td><td class="num">'+(a.clicks?money(a.spend/a.clicks):'—')+'</td></tr>'}).join('');
+const byCamp=new Map;filtered.forEach(r=>{let key=r.channel+' | '+r.campaign;let z=byCamp.get(key)||{channel:r.channel,campaign:r.campaign,spend:0,clicks:0,regs:0};z.spend+=r.spend;z.clicks+=r.clicks;z.regs+=r.regs;byCamp.set(key,z)});
+$('campaignRows').innerHTML=[...byCamp.values()].sort((a,b)=>b.spend-a.spend).map(r=>'<tr><td>'+r.channel+'</td><td>'+r.campaign.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</td><td class="num">'+money(r.spend)+'</td><td class="num">'+fmt(r.clicks)+'</td><td class="num">'+fmt(r.regs)+'</td><td class="num">'+(r.regs?money(r.spend/r.regs):'—')+'</td></tr>').join('')||'<tr><td colspan="6">No campaign rows for current filters</td></tr>';
+const days=[...new Set(filtered.map(r=>r.date))].sort();for(const [id,metric] of [['spendChart','spend'],['regChart','regs']])plot(id,days,channels.map(c=>({label:c,data:days.map(day=>filtered.filter(r=>r.channel===c&&r.date===day).reduce((n,r)=>n+r[metric],0))})))}
+for(const type of ['Meta','Google'])$(type.toLowerCase()).addEventListener('change',async e=>{let f=e.target.files[0];if(!f)return;try{load(type,await f.text())}catch(err){alert(type+' import error: '+err.message)}e.target.value=''});
+for(const id of ['from','to','channel'])$(id).addEventListener('change',render);
+$('clear').addEventListener('click',()=>{if(confirm('Remove both imported CSV datasets from this browser?')){db={Meta:[],Google:[]};localStorage.removeItem('ivim-jjd-imports');render()}});
+render();
+</script></body></html>
