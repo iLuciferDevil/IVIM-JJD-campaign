@@ -20,7 +20,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;back
 .note{font-size:12px;color:#728096;line-height:1.6}.upload{display:inline-flex;align-items:center;gap:6px;font-size:13px;flex-wrap:wrap}.upload input{max-width:230px}
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}}@media(max-width:520px){.kpis{grid-template-columns:1fr}body{padding:12px}}
 </style></head><body>
-<header><div><div class="tag" style="display:inline-block;margin-bottom:10px">PILLAR / IVIM HEALTH</div><h1>JJD Campaign Executive Dashboard</h1><p>Meta and Google campaign performance | Proof of concept | USD</p></div><span class="tag">Manual CSV reporting</span></header>
+<header><div><div class="tag" style="display:inline-block;margin-bottom:10px">PILLAR / IVIM HEALTH</div><h1>JJD Campaign Executive Dashboard</h1><p>Meta and Google campaign performance | Proof of concept | USD</p></div><span class="tag">Google Sheets reporting</span></header>
 <section class="panel"><div class="toolbar"><label>Start date <input id="from" type="date" value="2026-10-15"></label><label>End date <input id="to" type="date"></label>
 <label>Channel <select id="channel"><option value="all">All channels</option><option value="Meta">Meta</option><option value="Google">Google</option></select></label>
 <label>Meta CSV <input type="file" id="meta" accept=".csv,text/csv"></label><label>Google CSV <input type="file" id="google" accept=".csv,text/csv"></label>
@@ -47,7 +47,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;back
 <p class="note">90-day LTV to CAC will be added when verified registration, appointment and revenue sources become available. This POC uses browser-local storage and is not a shared source of truth; production reporting will need a controlled data pipeline and access protection.</p></section>
 <script>
 const $=id=>document.getElementById(id), fmt=n=>Number(n||0).toLocaleString('en-US',{maximumFractionDigits:1}), money=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-let db={Meta:[],Google:[]},charts={};try{db=JSON.parse(localStorage.getItem('ivim-jjd-imports'))||db}catch(e){}$('to').value=new Date().toISOString().slice(0,10);
+let db={Meta:[],Google:[]},charts={},sheetStatus='Connecting to Google Sheets…';$('to').value=new Date().toISOString().slice(0,10);
 function csvParse(text){let out=[],row=[],v='',quote=false;for(let i=0;i<text.length;i++){let c=text[i];if(c==='"'){if(quote&&text[i+1]==='"'){v+='"';i++}else quote=!quote}else if(c===','&&!quote){row.push(v);v=''}else if((c==='\n'||c==='\r')&&!quote){if(c==='\r'&&text[i+1]==='\n')i++;row.push(v);if(row.some(x=>x.trim()))out.push(row);row=[];v=''}else v+=c}row.push(v);if(row.some(x=>x.trim()))out.push(row);return out}
 const clean=x=>String(x||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
 const value=x=>{let y=String(x||'').replace(/[$,\s]/g,'');if(y.includes('%'))return 0;return Number(y)||0};
@@ -57,12 +57,12 @@ function load(type,txt){const rows=csvParse(txt.replace(/^\uFEFF/,''));if(rows.l
 let reg=findCol(h,['Registered','Registrations','Complete registration','Complete registrations','Website registrations','Website complete registrations','Registration','Leads (Registration)']);
 if(reg<0){let selected=prompt('Enter the EXACT column name that reports JJD registration events for '+type+'. Available columns:\n'+h.join(' | '));if(!selected)return;reg=findCol(h,[selected]);if(reg<0)throw Error('Registration column not found: '+selected)}
 const ends=findCol(h,['Reporting ends']);const rangeAggregate=type==='Meta'&&ends>=0&&rows.slice(1).some(r=>dateVal(r[ends])!==dateVal(r[date]));if(rangeAggregate){alert('This Meta export is aggregated across multiple days. Its spend and registrations will appear under the reporting start date, NOT as a true daily breakdown. For daily trend charts, export Meta with Breakdown > By day.')}db[type]=rows.slice(1).map(r=>({date:dateVal(r[date]),campaign:String(r[camp]||'Unknown'),spend:value(r[cost]),clicks:click>=0?value(r[click]):0,regs:value(r[reg])})).filter(r=>r.date);
-localStorage.setItem('ivim-jjd-imports',JSON.stringify(db));render()}
+sheetStatus='Temporary local import';render()}
 function aggregate(rows){return rows.reduce((o,r)=>({spend:o.spend+r.spend,clicks:o.clicks+r.clicks,regs:o.regs+r.regs}),{spend:0,clicks:0,regs:0})}
 function trow(cells){return '<tr>'+cells.map((x,i)=>'<td'+(i?' class="num"':'')+'>'+x+'</td>').join('')+'</tr>'}
 function plot(id,days,sets){if(charts[id])charts[id].destroy();if(!window.Chart){$(id).replaceWith(document.createTextNode('Charts require access to the Chart.js CDN'));return}charts[id]=new Chart($(id),{type:'line',data:{labels:days,datasets:sets.map((s,i)=>({label:s.label,data:s.data,borderColor:i?'#ee9b42':'#286bbc',backgroundColor:i?'#ee9b42':'#286bbc',tension:.2}))},options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true}}}})}
 function render(){const all=Object.entries(db).flatMap(([channel,rows])=>rows.map(r=>({...r,channel}))),filtered=all.filter(r=>r.date>=$('from').value&&r.date<=$('to').value&&($('channel').value==='all'||r.channel===$('channel').value));const s=aggregate(filtered);$('spend').textContent=all.length?money(s.spend):'—';$('regs').textContent=all.length?fmt(s.regs):'—';$('cpr').textContent=s.regs?money(s.spend/s.regs):'—';$('cpc').textContent=s.clicks?money(s.spend/s.clicks):'—';
-$('status').textContent='Loaded: Meta '+db.Meta.length+' daily campaign rows, Google '+db.Google.length+' daily campaign rows. Imports stored locally in this browser. '+(s.regs===0?'No registration events in selected date range.':'');
+$('status').textContent=sheetStatus+' | Meta '+db.Meta.length+' rows, Google '+db.Google.length+' rows';
 const channels=['Meta','Google'].filter(c=>$('channel').value==='all'||$('channel').value===c);
 $('channelRows').innerHTML=channels.map(c=>{const a=aggregate(filtered.filter(r=>r.channel===c));return '<tr><td>'+c+'</td><td class="num">'+money(a.spend)+'</td><td class="num">'+fmt(a.clicks)+'</td><td class="num">'+fmt(a.regs)+'</td><td class="num">'+(a.regs?money(a.spend/a.regs):'—')+'</td><td class="num">'+(a.clicks?money(a.spend/a.clicks):'—')+'</td></tr>'}).join('');
 const byCamp=new Map;filtered.forEach(r=>{let key=r.channel+' | '+r.campaign;let z=byCamp.get(key)||{channel:r.channel,campaign:r.campaign,spend:0,clicks:0,regs:0};z.spend+=r.spend;z.clicks+=r.clicks;z.regs+=r.regs;byCamp.set(key,z)});
@@ -70,6 +70,17 @@ $('campaignRows').innerHTML=[...byCamp.values()].sort((a,b)=>b.spend-a.spend).ma
 const days=[...new Set(filtered.map(r=>r.date))].sort();for(const [id,metric] of [['spendChart','spend'],['regChart','regs']])plot(id,days,channels.map(c=>({label:c,data:days.map(day=>filtered.filter(r=>r.channel===c&&r.date===day).reduce((n,r)=>n+r[metric],0))})))}
 for(const type of ['Meta','Google'])$(type.toLowerCase()).addEventListener('change',async e=>{let f=e.target.files[0];if(!f)return;try{load(type,await f.text())}catch(err){alert(type+' import error: '+err.message)}e.target.value=''});
 for(const id of ['from','to','channel'])$(id).addEventListener('change',render);
-$('clear').addEventListener('click',()=>{if(confirm('Remove both imported CSV datasets from this browser?')){db={Meta:[],Google:[]};localStorage.removeItem('ivim-jjd-imports');render()}});
+$('clear').addEventListener('click',()=>{if(confirm('Remove both imported CSV datasets from this browser?')){db={Meta:[],Google:[]};render()}});
 render();
+async function refreshFromSheets(){
+ try{
+ const r=await fetch('/api/jjd-data',{cache:'no-store'}),d=await r.json();
+ if(!r.ok)throw Error(d.error||'Connection failed');
+ function convert(tab,channel){return(d.tabs?.[tab]||[]).filter(x=>x.date&&x.campaign).map(x=>({date:x.date,campaign:x.campaign,spend:Number(x.spend)||0,clicks:Number(x.clicks)||0,regs:Number(channel==='Meta'?x.registrations:x.registration_conversions)||0}))}
+ db={Meta:convert('Meta Campaign Daily','Meta'),Google:convert('Google Campaign Daily','Google')};
+ sheetStatus='Shared Google Sheet last checked: '+new Date().toLocaleString();render();
+ }catch(e){sheetStatus='Google Sheets connection pending: '+e.message;render()}
+}
+refreshFromSheets();setInterval(refreshFromSheets,300000);
+
 </script></body></html>
